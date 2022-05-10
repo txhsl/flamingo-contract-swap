@@ -19,21 +19,15 @@ namespace ProxyTemplate
         {
             // Check token
             Assert(token == Token0 || token == Token1 || token == Pair01, "Unsupported Token");
+            Assert(amount >= 0, "Insufficient Parameters");
 
             // Find allowed
-            BigInteger allowedAmount = AllowedOf(token, to);
+            Assert(AllowedOf(token, to) >= amount, "Inefficient Allowed");
+            Consume(token, to, amount);
 
-            if (amount <= allowedAmount)
-            {
-                // Transfer
-                Consume(token, to, amount);
-                UInt160 me = Runtime.ExecutingScriptHash;
-                return (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { me, to, amount, data });
-            }
-            else
-            {
-                return false;
-            }
+            // Transfer
+            UInt160 me = Runtime.ExecutingScriptHash;
+            return (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { me, to, amount, data });
         }
 
         public static void onNEP17Payment(UInt160 from, BigInteger amount, BigInteger data)
@@ -48,19 +42,10 @@ namespace ProxyTemplate
         /// <param name="from">Token owner</param>
         /// <param name="to"></param>
         /// <param name="amount"></param>
-        /// <returns></returns>
-        private static bool Approve(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
+        private static void Approve(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
         {
-            BigInteger balance = DepositOf(token, from);
-            if (balance >= amount)
-            {
-                UpdateBalance(token == Token0 ? Prefix_Allowed_Token0 : (token == Token1 ? Prefix_Allowed_Token1 : Prefix_Allowed_LPToken), to, +amount);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            byte prefix = token == Token0 ? Prefix_Allowed_Token0 : (token == Token1 ? Prefix_Allowed_Token1 : Prefix_Allowed_LPToken);
+            Assert(UpdateBalance(prefix, to, +amount), "Update Fail", prefix);
         }
 
         /// <summary>
@@ -69,19 +54,10 @@ namespace ProxyTemplate
         /// <param name="token"></param>
         /// <param name="to"></param>
         /// <param name="amount"></param>
-        /// <returns></returns>
-        private static bool Consume(UInt160 token, UInt160 to, BigInteger amount)
+        private static void Consume(UInt160 token, UInt160 to, BigInteger amount)
         {
-            BigInteger allowed = AllowedOf(token, to);
-            if (allowed >= amount)
-            {
-                UpdateBalance(token == Token0 ? Prefix_Allowed_Token0 : (token == Token1 ? Prefix_Allowed_Token1 : Prefix_Allowed_LPToken), to, -amount);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            byte prefix = token == Token0 ? Prefix_Allowed_Token0 : (token == Token1 ? Prefix_Allowed_Token1 : Prefix_Allowed_LPToken);
+            Assert(UpdateBalance(prefix, to, -amount), "Update Fail", prefix);
         }
 
         /// <summary>
@@ -89,12 +65,11 @@ namespace ProxyTemplate
         /// </summary>
         /// <param name="token"></param>
         /// <param name="to"></param>
-        /// <returns></returns>
-        private static bool Retrieve(UInt160 token, UInt160 to)
+        private static void Retrieve(UInt160 token, UInt160 to)
         {
             BigInteger allowed = AllowedOf(token, to);
-            UpdateBalance(token == Token0 ? Prefix_Allowed_Token0 : (token == Token1 ? Prefix_Allowed_Token1 : Prefix_Allowed_LPToken), to, -allowed);
-            return true;
+            byte prefix = token == Token0 ? Prefix_Allowed_Token0 : (token == Token1 ? Prefix_Allowed_Token1 : Prefix_Allowed_LPToken);
+            Assert(UpdateBalance(prefix, to, -allowed), "Update Fail", prefix);
         }
 
         private static BigInteger AllowedOf(UInt160 token, UInt160 to)
@@ -109,15 +84,16 @@ namespace ProxyTemplate
         /// <param name="token"></param>
         /// <param name="owner"></param>
         /// <param name="amount"></param>
-        /// <returns></returns>
-        private static bool YMint(UInt160 token, UInt160 owner, BigInteger amount)
+        private static void YMint(UInt160 token, UInt160 owner, BigInteger amount)
         {
-            return UpdateBalance(token == Token0 ? Prefix_Deposit_Balance0 : (token == Token1 ? Prefix_Deposit_Balance1 : Prefix_Balance_LPToken), owner, +amount);
+            byte prefix = token == Token0 ? Prefix_Deposit_Balance0 : (token == Token1 ? Prefix_Deposit_Balance1 : Prefix_Balance_LPToken);
+            Assert(UpdateBalance(prefix, owner, +amount), "Update Fail", prefix);
         }
 
-        private static bool YBurn(UInt160 token, UInt160 owner, BigInteger amount)
+        private static void YBurn(UInt160 token, UInt160 owner, BigInteger amount)
         {
-            return UpdateBalance(token == Token0 ? Prefix_Deposit_Balance0 : (token == Token1 ? Prefix_Deposit_Balance1 : Prefix_Balance_LPToken), owner, -amount);
+            byte prefix = token == Token0 ? Prefix_Deposit_Balance0 : (token == Token1 ? Prefix_Deposit_Balance1 : Prefix_Balance_LPToken);
+            Assert(UpdateBalance(prefix, owner, -amount), "Update Fail", prefix);
         }
 
         public static BigInteger DepositOf(UInt160 token, UInt160 owner)
@@ -144,20 +120,6 @@ namespace ProxyTemplate
             else
                 balanceMap.Put(owner, balance);
             return true;
-        }
-
-        /// <summary>
-        /// Check if
-        /// </summary>
-        /// <param name="condition"></param>
-        /// <param name="message"></param>
-        private static void Assert(bool condition, string message)
-        {
-            if (!condition)
-            {
-                onFault(message, null);
-                ExecutionEngine.Assert(false);
-            }
         }
 
         /// <summary>

@@ -23,14 +23,6 @@ namespace ProxyTemplate
         public static event RemoveEvent onRemove;
         public delegate void RemoveEvent(BigInteger amount0, BigInteger amount1);
 
-        [DisplayName("Approve")]
-        public static event ApproveEvent onApprove;
-        public delegate void ApproveEvent(UInt160 token, UInt160 to, BigInteger amount);
-
-        [DisplayName("Retrieve")]
-        public static event RetrieveEvent onRetrieve;
-        public delegate void RetrieveEvent(UInt160 token, UInt160 to);
-
         [DisplayName("Fault")]
         public static event FaultEvent onFault;
         public delegate void FaultEvent(string message, params object[] paras);
